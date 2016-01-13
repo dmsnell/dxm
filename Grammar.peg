@@ -1,0 +1,116 @@
+Stack
+ = cards:(card:Card _ nl+ { return card })* _ card:Card _ nl*
+   {
+     return cards.concat( card );
+   }
+
+Card
+ = "Card" _ behaviors:( _ Map _ b:Behavior { return b })*
+ {
+   return behaviors.reduce( function( total, current ) {
+     var key = current.name;
+     var val = current.value;
+     var old = total[ key ] || [];
+     var hold = current.replacement === 'hold';
+     
+     total[ key ] = hold
+       ? [ ...old, val ]
+       : val;
+   
+     return total;
+   }, { type: 'Card' } );
+ }
+ 
+Behavior
+ = ColorBehavior
+ / OpacityBehavior
+ / PositionBehavior
+ 
+PositionBehavior
+ = RelativePositionBehavior
+ / AbsolutePositonBehavior
+
+AbsolutePositonBehavior
+ = "Position" _ c:Coordinate
+   { return { name: 'position', value: c, replacement: 'hold' } }
+
+Coordinate
+ = "XY" _ x:Fraction _ y:Fraction { return { x, y } }
+ / "X" _ x:Fraction { return { x } }
+ / "Y" _ y:Fraction { return { y } }
+
+RelativePositionBehavior
+ = "Position" _ p:(p:RelativePosition _ { return p })+
+   {
+     var merge = function( o ) {
+       return o.reduce( function( t, c ) {
+         t[ c.dimension ] = c.value;
+         
+         return t;
+       }, { gravity: true } );
+     };
+   
+     return { name: 'position', value: merge( p ), replacement: 'hold' }
+   }
+ 
+RelativePosition
+ = "Top" { return { dimension: 'y', value: 1 } }
+ / "Center" { return { dimension: 'y', value: 0 } }
+ / "Bottom" { return { dimension: 'y', value: -1 } }
+ / "Left" { return { dimension: 'x', value: -1 } }
+ / "Middle" { return { dimension: 'x', value: 0 } }
+ / "Right" { return { dimension: 'x', value: 1 } }
+
+OpacityBehavior
+ = "Opacity" _ v:Fraction
+   { return { name: 'color', value: [1, 1, 1, v], replacement: 'hold' } }
+
+ColorBehavior
+ = c:ColorIdentifier
+   { return { name: 'color', value: c.color, replacement: 'hold' } }
+
+ColorIdentifier
+ = NamedColor
+ / RGBAColor
+ / RGBColor
+
+RGBAColor
+ = "Color" _ "RGBA" _ c:RGBTriplet _ a:Fraction
+   { return { color: [ ...c, a ] } }
+
+RGBColor
+ = "Color" _ "RGB" _ c:RGBTriplet
+   { return { color: [ ...c, 1 ] } }
+   
+RGBTriplet
+ = r:Fraction _ b:Fraction _ g:Fraction
+   { return [ r, g, b ] }
+
+NamedColor
+ = "Color" _ color:ColorName { return { color } }
+
+ColorName
+ = "Red" { return [ 1, 0, 0, 1 ] }
+ / "Orange" { return [ 1, 0.5, 0, 1 ] }
+ / "Yellow" { return [ 1, 1, 0, 1] }
+ / "Green" { return [ 0, 1, 0, 1] }
+ / "Blue" { return [ 0, 0, 1, 1 ] }
+ 
+Map
+ = "->"
+ 
+Fraction
+ = s:"-"? "+"? w:[01] f:("." f:[0-9]+ { return f })?
+   {
+     var v = parseFloat( w + '.' + [].concat(f).join( '' ), 10 );
+     
+     if ( s ) { v *= -1 }
+     
+     return v;
+   }
+   
+nl
+ = [\r\n]
+
+_ "whitespace"
+  = [ \t]*
